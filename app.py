@@ -3,9 +3,12 @@ from werkzeug.utils import secure_filename
 import pymysql,os,jwt,time
 from pymysql.cursors import DictCursor
 from werkzeug.security import generate_password_hash,check_password_hash
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables
 
 app=Flask(__name__)
-JWT_SECRET = 'asdfghjk234567890'
+JWT_SECRET = os.getenv('JWT_SECRET', 'asdfghjk234567890')
 
 def generate_token(user_id,email,role):
     payload={
@@ -39,11 +42,12 @@ def get_token_data():
         return None
 
 def get_db():
+    # ✅ Use environment variables instead of hardcoded localhost
     return pymysql.connect(
-        host='localhost',
-        user='root',
-        passwd='',
-        db='db_flask_project_api'
+        host=os.getenv('DB_HOST', 'localhost'),
+        user=os.getenv('DB_USER', 'root'),
+        passwd=os.getenv('DB_PASS', ''),
+        db=os.getenv('DB_NAME', 'db_flask_project_api')
     )
 
 UPLOAD_FOLDER='static/images'
@@ -53,7 +57,7 @@ app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
 @app.route('/')
 def index():
     return jsonify({
-        'message':'tik dai'
+        'message':'tik daiiiiii'
     })
 @app.route('/getUser')
 def getUser():
@@ -376,7 +380,7 @@ def editRent(id):
     conn.close()
     return jsonify({
         'message':'rent updated successfully',
-        'status':200  # ✅ Changed from 201 to 200
+        'status':200  
     })
 
 if (__name__)=="__main__":
