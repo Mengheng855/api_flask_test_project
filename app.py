@@ -1,4 +1,5 @@
 from flask import Flask,request,jsonify,session
+from werkzeug.utils import secure_filename
 import pymysql,os,jwt,time
 from pymysql.cursors import DictCursor
 from werkzeug.security import generate_password_hash,check_password_hash
@@ -40,6 +41,10 @@ def get_db():
         passwd='',
         db='db_flask_project_api'
     )
+UPLOAD_FOLDER='static/images'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
 @app.route('/getUser')
 def getUser():
     conn=get_db()
@@ -207,6 +212,116 @@ def editCategory(id):
     return jsonify({
         'message':'updated category',
         'status':200
+    })
+@app.route('/addRent',methods=['POST'])
+def addRent():
+    token_data=get_token_data()
+    if not token_data:
+        return jsonify({
+            'message':'Token is missing or invalid',
+            'status':401,
+        })
+    if token_data['role']!=1:
+        return jsonify({
+            'message':'Only admin can add category',
+            'status':401,
+        })
+    user_id=token_data['user_id']
+    cate_id=request.form['cate_id']
+    price=request.form['price']
+    des=request.form['description']
+    image=request.files['image']
+    if  image:
+        filename=secure_filename(image.filename)
+        filepath=os.path.join(app.config['UPLOAD_FOLDER'],filename)
+        image.save(filepath)
+        image_url=request.host_url.rstrip('/')+"/static/images/"+filename
+    conn=get_db()
+    cursor=conn.cursor()
+    cursor.execute('INSERT INTO tbl_rent (price,description,image,cate_id,user_id) VALUES (%s,%s,%s,%s,%s)',(price,des,image_url,cate_id,user_id))
+    conn.commit()
+    return jsonify({
+        'message':'rent added successfully',
+        'status':201
+    })
+@app.route('/getRent')
+def getRent():
+    conn=get_db()
+    cursor=conn.cursor(DictCursor)
+    cursor.execute('''
+        SELECT r.*, c.cate_name, u.username
+        FROM tbl_rent r
+        INNER JOIN tbl_user u ON r.user_id = u.user_id
+        INNER JOIN tbl_category c ON r.cate_id = c.cate_id
+        ''')
+    data=cursor.fetchall()
+    return jsonify({
+        'message':'get rent',
+        'status':200,
+        'data':data
+    })
+@app.route('/deleteRent/<int:id>',methods=['DELETE'])
+def deleteRent(id):
+    token_data=get_token_data()
+    if not token_data:
+        return jsonify({
+            'message':'Token is missing or invalid',
+            'status':401,
+        })
+    if token_data['role']!=1:
+        return jsonify({
+            'message':'Only admin can add category',
+            'status':401,
+        })
+    conn=get_db()
+    cursor=conn.cursor()
+    cursor.execute('DELETE FROM tbl_rent WHERE rent_id=%s',(id))
+    conn.commit()
+    return jsonify({
+        'message':'deleted successfully',
+        'status':200
+    })
+@app.route('/editRent/<int:id>',methods=['PATCH'])
+def editRent(id):
+    token_data=get_token_data()
+    if not token_data:
+        return jsonify({
+            'message':'Token is missing or invalid',
+            'status':401,
+        })
+    if token_data['role']!=1:
+        return jsonify({
+            'message':'Only admin can add category',
+            'status':401,
+        })
+    user_id=token_data['user_id']
+    cate_id=request.form.get('cate_id') 
+    price=request.form.get('price') 
+    des=request.form.get('description')
+    image_url=None
+    if 'image' in request.files:  
+        image=request.files['image']
+        if image.filename != '':  
+            filename=secure_filename(image.filename)
+            filepath=os.path.join(app.config['UPLOAD_FOLDER'],filename)
+            image.save(filepath)
+            image_url=request.host_url.rstrip('/')+"/static/images/"+filename
+    conn=get_db()
+    cursor=conn.cursor()
+    if image_url:
+            cursor.execute(
+                'UPDATE tbl_rent SET price=%s, description=%s, image=%s, cate_id=%s, user_id=%s WHERE rent_id=%s',
+                (price, des, image_url, cate_id, user_id, id) 
+            )
+    else:
+        cursor.execute(
+            'UPDATE tbl_rent SET price=%s, description=%s, cate_id=%s, user_id=%s WHERE rent_id=%s',
+            (price, des, cate_id, user_id, id)  
+        )    
+    conn.commit()
+    return jsonify({
+        'message':'rent updated successfully',
+        'status':201
     })
 if (__name__)=="__main__":
     app.run(debug=True)
