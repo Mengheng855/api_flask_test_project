@@ -5,7 +5,7 @@ from pymysql.cursors import DictCursor
 from werkzeug.security import generate_password_hash,check_password_hash
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables
+load_dotenv()  
 
 app=Flask(__name__)
 JWT_SECRET = os.getenv('JWT_SECRET', 'asdfghjk234567890')
