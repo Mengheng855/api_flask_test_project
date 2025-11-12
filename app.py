@@ -243,7 +243,8 @@ def addRent():
     return jsonify({
         'message':'rent added successfully',
         'status':201
-    })
+    }) 
+
 @app.route('/getRent')
 def getRent():
     conn=get_db()
