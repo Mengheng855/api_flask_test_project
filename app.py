@@ -50,7 +50,11 @@ UPLOAD_FOLDER='static/images'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
-
+@app.route('/')
+def index():
+    return jsonify({
+        'message':'tik dai'
+    })
 @app.route('/getUser')
 def getUser():
     conn=get_db()
