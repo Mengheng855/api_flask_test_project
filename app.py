@@ -3,8 +3,10 @@ from werkzeug.utils import secure_filename
 import pymysql,os,jwt,time
 from pymysql.cursors import DictCursor
 from werkzeug.security import generate_password_hash,check_password_hash
+
 app=Flask(__name__)
 JWT_SECRET = 'asdfghjk234567890'
+
 def generate_token(user_id,email,role):
     payload={
         'user_id':user_id,
@@ -14,6 +16,7 @@ def generate_token(user_id,email,role):
     }
     token=jwt.encode(payload,JWT_SECRET,algorithm='HS256')
     return token
+
 def get_token_data():
     token = None
     
@@ -34,6 +37,7 @@ def get_token_data():
         return None
     except jwt.InvalidTokenError:
         return None
+
 def get_db():
     return pymysql.connect(
         host='localhost',
@@ -41,16 +45,20 @@ def get_db():
         passwd='',
         db='db_flask_project_api'
     )
+
 UPLOAD_FOLDER='static/images'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER']=UPLOAD_FOLDER
+
 @app.route('/getUser')
 def getUser():
     conn=get_db()
     cursor=conn.cursor(DictCursor)
     cursor.execute('SELECT * FROM tbl_user')
     data=cursor.fetchall()
+    cursor.close()
+    conn.close()
     if data:
         return jsonify({
             'message':'getUser',
@@ -63,12 +71,15 @@ def getUser():
             'status':200,
             'data':data
         })
+
 @app.route('/getUser/<int:id>')
 def gettUser(id):
     conn=get_db()
     cursor=conn.cursor(pymysql.cursors.DictCursor)
-    cursor.execute('SELECT * FROM tbl_user WHERE user_id=%s',(id))
+    cursor.execute('SELECT * FROM tbl_user WHERE user_id=%s',(id,))  # ✅ Added comma
     data=cursor.fetchall()
+    cursor.close()
+    conn.close()
     if data:
         return jsonify({
             'message':'getUser',
@@ -81,6 +92,7 @@ def gettUser(id):
             'status':200,
             'data':data
         })
+
 @app.route('/register',methods=['POST'])
 def register():
     username=request.form['username']
@@ -90,10 +102,13 @@ def register():
     cursor=conn.cursor()
     cursor.execute('INSERT INTO tbl_user (username,email,password) VALUES (%s,%s,%s)',(username,email,password))
     conn.commit()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'created',
         'status':200
     })  
+
 @app.route('/login',methods=['POST'])
 def login():
     email=request.form['email']
@@ -101,8 +116,10 @@ def login():
     if email and password:
         conn=get_db()
         cursor=conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute('SELECT user_id, email, password,role FROM tbl_user WHERE email=%s',(email))
+        cursor.execute('SELECT user_id, email, password,role FROM tbl_user WHERE email=%s',(email,))  # ✅ Added comma
         data=cursor.fetchone()
+        cursor.close()
+        conn.close()
         if data:
             if check_password_hash(data['password'],password):
                 token=generate_token(data['user_id'],data['email'],data['role'])
@@ -114,7 +131,6 @@ def login():
                     'message':f'login successfuly, {role_message}',
                     'status':200,
                     'token':token,
-                   
                 })
             else:
                 return jsonify({
@@ -131,6 +147,7 @@ def login():
             'message':'Email and password required',
             'status':400
         })
+
 @app.route('/addCategory',methods=['POST'])
 def addCategory():
     token_data=get_token_data()
@@ -150,10 +167,13 @@ def addCategory():
     cursor=conn.cursor()
     cursor.execute('INSERT INTO tbl_category (cate_name,user_id) VALUES (%s,%s)',(cate_name,user_id))
     conn.commit()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'added category',
         'status':201
     })
+
 @app.route('/getCategory')
 def getCategory():
     conn=get_db()
@@ -164,11 +184,14 @@ def getCategory():
         ON c.user_id=u.user_id
         """)
     data=cursor.fetchall()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'success',
         'status':200,
         'data':data
     })
+
 @app.route('/deleteCategory/<int:id>',methods=['DELETE'])
 def deleteCategory(id):
     token_data=get_token_data()
@@ -179,17 +202,20 @@ def deleteCategory(id):
         })
     if token_data['role']!=1:
         return jsonify({
-            'message':'Only admin can add category',
+            'message':'Only admin can delete category',
             'status':401,
         })
     conn=get_db()
     cursor=conn.cursor()
-    cursor.execute('DELETE FROM tbl_category WHERE cate_id=%s',(id))
+    cursor.execute('DELETE FROM tbl_category WHERE cate_id=%s',(id,))  # ✅ Added comma
     conn.commit()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'deleted succesfully',
         'status':200
     })
+
 @app.route('/editCategory/<int:id>',methods=['PATCH'])
 def editCategory(id):
     token_data=get_token_data()
@@ -200,19 +226,22 @@ def editCategory(id):
         })
     if token_data['role']!=1:
         return jsonify({
-            'message':'Only admin can add category',
+            'message':'Only admin can edit category',
             'status':401,
         })
     cate_name=request.form['cate_name']
     user_id=token_data['user_id']
     conn=get_db()
     cursor=conn.cursor()
-    cursor.execute('UPDATE tbl_category SET cate_name=%s,user_id=%s',(cate_name,user_id))
+    cursor.execute('UPDATE tbl_category SET cate_name=%s,user_id=%s WHERE cate_id=%s',(cate_name,user_id,id))  # ✅ Added WHERE clause
     conn.commit()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'updated category',
         'status':200
     })
+
 @app.route('/addRent',methods=['POST'])
 def addRent():
     token_data=get_token_data()
@@ -223,27 +252,36 @@ def addRent():
         })
     if token_data['role']!=1:
         return jsonify({
-            'message':'Only admin can add category',
+            'message':'Only admin can add rent',
             'status':401,
         })
+    
     user_id=token_data['user_id']
-    cate_id=request.form['cate_id']
-    price=request.form['price']
-    des=request.form['description']
-    image=request.files['image']
-    if  image:
-        filename=secure_filename(image.filename)
-        filepath=os.path.join(app.config['UPLOAD_FOLDER'],filename)
-        image.save(filepath)
-        image_url=request.host_url.rstrip('/')+"/static/images/"+filename
+    cate_id=request.form.get('cate_id')  # ✅ Changed to .get()
+    price=request.form.get('price')  # ✅ Changed to .get()
+    des=request.form.get('description')  # ✅ Changed to .get()
+    image_url=None
+    
+    if 'image' in request.files:  # ✅ Check if file exists
+        image=request.files['image']
+        if image.filename != '':  # ✅ Check if filename not empty
+            filename=secure_filename(image.filename)
+            filepath=os.path.join(app.config['UPLOAD_FOLDER'],filename)
+            image.save(filepath)
+            image_url=request.host_url.rstrip('/')+"/static/images/"+filename
+    
     conn=get_db()
     cursor=conn.cursor()
     cursor.execute('INSERT INTO tbl_rent (price,description,image,cate_id,user_id) VALUES (%s,%s,%s,%s,%s)',(price,des,image_url,cate_id,user_id))
     conn.commit()
+    rent_id=cursor.lastrowid
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'rent added successfully',
-        'status':201
-    }) 
+        'status':201,
+        'data':{'rent_id':rent_id}
+    })
 
 @app.route('/getRent')
 def getRent():
@@ -252,15 +290,19 @@ def getRent():
     cursor.execute('''
         SELECT r.*, c.cate_name, u.username
         FROM tbl_rent r
-        INNER JOIN tbl_user u ON r.user_id = u.user_id
-        INNER JOIN tbl_category c ON r.cate_id = c.cate_id
-        ''')
+        LEFT JOIN tbl_user u ON r.user_id = u.user_id
+        LEFT JOIN tbl_category c ON r.cate_id = c.cate_id
+        ORDER BY r.created_at DESC
+    ''')
     data=cursor.fetchall()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'get rent',
         'status':200,
         'data':data
     })
+
 @app.route('/deleteRent/<int:id>',methods=['DELETE'])
 def deleteRent(id):
     token_data=get_token_data()
@@ -271,17 +313,20 @@ def deleteRent(id):
         })
     if token_data['role']!=1:
         return jsonify({
-            'message':'Only admin can add category',
+            'message':'Only admin can delete rent',
             'status':401,
         })
     conn=get_db()
     cursor=conn.cursor()
-    cursor.execute('DELETE FROM tbl_rent WHERE rent_id=%s',(id))
+    cursor.execute('DELETE FROM tbl_rent WHERE rent_id=%s',(id,))  # ✅ Added comma
     conn.commit()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'deleted successfully',
         'status':200
     })
+
 @app.route('/editRent/<int:id>',methods=['PATCH'])
 def editRent(id):
     token_data=get_token_data()
@@ -292,37 +337,43 @@ def editRent(id):
         })
     if token_data['role']!=1:
         return jsonify({
-            'message':'Only admin can add category',
+            'message':'Only admin can edit rent',
             'status':401,
         })
+    
     user_id=token_data['user_id']
-    cate_id=request.form.get('cate_id') 
-    price=request.form.get('price') 
+    cate_id=request.form.get('cate_id')
+    price=request.form.get('price')
     des=request.form.get('description')
     image_url=None
-    if 'image' in request.files:  
+    
+    if 'image' in request.files:
         image=request.files['image']
-        if image.filename != '':  
+        if image.filename != '':
             filename=secure_filename(image.filename)
             filepath=os.path.join(app.config['UPLOAD_FOLDER'],filename)
             image.save(filepath)
             image_url=request.host_url.rstrip('/')+"/static/images/"+filename
+    
     conn=get_db()
     cursor=conn.cursor()
     if image_url:
-            cursor.execute(
-                'UPDATE tbl_rent SET price=%s, description=%s, image=%s, cate_id=%s, user_id=%s WHERE rent_id=%s',
-                (price, des, image_url, cate_id, user_id, id) 
-            )
+        cursor.execute(
+            'UPDATE tbl_rent SET price=%s, description=%s, image=%s, cate_id=%s, user_id=%s WHERE rent_id=%s',
+            (price, des, image_url, cate_id, user_id, id)
+        )
     else:
         cursor.execute(
             'UPDATE tbl_rent SET price=%s, description=%s, cate_id=%s, user_id=%s WHERE rent_id=%s',
-            (price, des, cate_id, user_id, id)  
-        )    
+            (price, des, cate_id, user_id, id)
+        )
     conn.commit()
+    cursor.close()
+    conn.close()
     return jsonify({
         'message':'rent updated successfully',
-        'status':201
+        'status':200  # ✅ Changed from 201 to 200
     })
+
 if (__name__)=="__main__":
     app.run(host='0.0.0.0', port=5000, debug=False)
